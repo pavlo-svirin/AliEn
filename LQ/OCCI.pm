@@ -53,11 +53,12 @@ $execute\n";
   $error or return -1;
 =cut
 
-  my $command = "occi -s --endpoint $endpoint --action create
---resource compute --attribute occi.core.title=\"OCCI-VM\" --mixin
-$mixin --mixin resource_tpl#m1-small
+  my $command = "occi --endpoint $endpoint --action create \\
+--resource compute --attribute occi.core.title=\"OCCI-VM\" --mixin \\
+$mixin --mixin resource_tpl#m1-small \\
 --auth x509 --user-cred $ENV{X509_USER_PROXY} --voms";
 
+  $self->info( $command );
   system( $command );
 
   return 0;
@@ -146,10 +147,10 @@ sub kill {
     }
 =cut
 
-    my $command = "occi --endpoint $endpoint --action delete
---resource $queueId --auth x509
+    my $command = "occi --endpoint $endpoint --action delete \\
+--resource $queueId --auth x509 \\
 --user-cred $ENV{X509_USER_PROXY} --voms";
-    
+    $self->info($command);
     system($command);
 
     return 2;
@@ -182,6 +183,14 @@ sub initialize() {
 }
 
 
+sub getNumberRunning {
+  my $self = shift;
+  
+  my ($running, $queued) = $self->getAllBatchIds();
+  return $running;
+}
+
+
 sub getNumberQueued {
   my $self = shift;
 
@@ -202,12 +211,14 @@ sub getNumberQueued {
 }
 
 
-sub getOCCIQueueStats{
+sub getOCCIQueueStatus{
   my $self = shift;
-  my $command = "occi --endpoint $endpoint --action list --resource
-	$mixin --auth x509 --user-cred $ENV{X509_USER_PROXY} --voms";
+  my $command = "occi --endpoint $endpoint --action list --resource \\
+	compute --auth x509 --user-cred $ENV{X509_USER_PROXY} --voms | wc -l";
   
+  $self->info( $command );
   my $out = `$command`;
+  $self->info("We got $out machines running");
 
   return $out;  
 }
@@ -215,15 +226,12 @@ sub getOCCIQueueStats{
 
 sub getAllBatchIds {
   my $self=shift;
-  my @output=$self->getOCCIQueueStatus() or return;
+  my $output=$self->getOCCIQueueStatus(); # or return;
 
-  $self->debug(1,"Checking the jobs from  @output");
-  @output= grep (s/\s+.*//s, @output);
 
-  $self->debug(1, "Returning @output");
+  $self->debug(1, "Returning $output");
 
-  return @output;
-
+  return ($output, 0);
 }
 
 return 1;
