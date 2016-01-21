@@ -56,7 +56,8 @@ sub submit {
   mkdir( $log_folder ) if( $ENV{HTCONDOR_LOG_PATH} and !-d $log_folder );
 
   my $submit = "cmd = $jobscript\n" .
-( $ENV{HTCONDOR_LOG_PATH} ? "output = $ENV{HTCONDOR_LOG_PATH}/jobagent_$ENV{ALIEN_JOBAGENT_ID}.out
+( $ENV{HTCONDOR_LOG_PATH} ?
+"output = $log_folder/jobagent_$ENV{ALIEN_JOBAGENT_ID}.out
 error = $log_folder/jobagent_$ENV{ALIEN_JOBAGENT_ID}.err
 log = $log_folder/jobagent_$ENV{ALIEN_JOBAGENT_ID}.log\n" : "" )
 . 
@@ -66,6 +67,7 @@ use_x509userproxy = true
 #periodic_remove = (RemoteWallClockTime > 48*3600 ) || (JobStatus==5 && (CurrentTime - EnteredCurrentStatus) > 5*3600 ) 
 periodic_remove = (CurrentTime - QDate) > 7*24*3600
 environment=\"ALIEN_CM_AS_LDAP_PROXY='$cm' ALIEN_ALICE_CM_AS_LDAP_PROXY='$cm' ALIEN_JOBAGENT_ID='$ENV{ALIEN_JOBAGENT_ID}'\"
++TransferOutput = \"\"
 queue 1";
 
   $self->{COUNTER}++;
