@@ -9,10 +9,16 @@ use Data::Dumper;
 use POSIX;
 use strict;
 
+my $ROUTES_LIST_FILE = "/tmp/condor_routes";
+my $ROUTES_LIST_UPDATE_PERIOD = 60*60;
+
 sub submit {
   my $self = shift;
   my $classad=shift;
   my ( $command, @args ) = @_;
+
+  # updating routes
+  $self->update_routes() if $ENV{UPDATE_ROUTES} and $ENV{ROUTES_LIST}; 
   
   my $arglist = join " ", @args;
   $self->debug(1,"*** CONDOR.pm submit ***");
@@ -61,13 +67,19 @@ sub submit {
 error = $log_folder/jobagent_$ENV{ALIEN_JOBAGENT_ID}.err
 log = $log_folder/jobagent_$ENV{ALIEN_JOBAGENT_ID}.log\n" : "" )
 . 
-"universe = grid
-grid_resource = condor ce503.cern.ch ce503.cern.ch:9619
+"universe = vanilla
+#universe = grid
+#grid_resource = condor alicondorce01.cern.ch alicondorce01.cern.ch:9619
++WantJobRouter=True
 use_x509userproxy = true
+job_lease_duration = 7200
+should_transfer_files = YES
+#when_to_transfer_output = ON_EXIT
+#transfer_input_files = /scratch/test/files/in1,/scratch/test/files/in2
+
 #periodic_remove = (RemoteWallClockTime > 48*3600 ) || (JobStatus==5 && (CurrentTime - EnteredCurrentStatus) > 5*3600 ) 
-periodic_remove = (CurrentTime - QDate) > 7*24*3600
+periodic_remove = (CurrentTime - QDate > 7*24*3600)
 environment=\"ALIEN_CM_AS_LDAP_PROXY='$cm' ALIEN_ALICE_CM_AS_LDAP_PROXY='$cm' ALIEN_JOBAGENT_ID='$ENV{ALIEN_JOBAGENT_ID}'\"
-+TransferOutput = \"\"
 queue 1";
 
   $self->{COUNTER}++;
@@ -154,6 +166,10 @@ sub checkCondorHealth{
 
 sub getNumberRunning{
   my $self = shift;
+
+  # updating routes
+  $self->update_routes() if $ENV{UPDATE_ROUTES} and $ENV{ROUTES_LIST};
+  
   my $totals = `condor_q $self->{USERNAME} -totals | tail -n 1`;
   return undef if $?;
   my $running = undef;
@@ -164,6 +180,10 @@ sub getNumberRunning{
 
 sub getNumberQueued{
   my $self = shift;
+
+  # updating routes
+  $self->update_routes() if $ENV{UPDATE_ROUTES} and $ENV{ROUTES_LIST};
+
   my $totals = `condor_q $self->{USERNAME} -totals | tail -n 1`;
   return undef if $?;
   my $queued = 0;
@@ -177,12 +197,18 @@ sub getStatus {
   return 'QUEUED';
 }
 
+
 sub initialize() {
   my $self = shift;
 
+  # updating job routes if needed
+  $self->write_routes() if $ENV{UPDATE_ROUTES} and $ENV{ROUTES_LIST};
+  $self->info("Warning: Job Router update ordered but no routes specified") 
+					if($ENV{UPDATE_ROUTES} and !$ENV{ROUTES_LIST});
+  $self->{ROUTES_FILE_LAST_UPDATE} = time();
+
   $self->{PATH} = $self->{CONFIG}->{LOG_DIR};
   $self->{X509}=AliEn::X509->new();
-
 
   $self->debug(1,"In CONDOR.pm initialize");
   $self->{SUBMIT_CMD} = ( $self->{CONFIG}->{CE_SUBMITCMD} or "condor_submit" );
@@ -249,5 +275,20 @@ sub ping_ce{
   return system("condor_ping -verbose -name ce_name -pool $ce_pool WRITE");
 }
 
+
+sub write_routes{
+  my $self = shift;
+  $self->debug(2, "*** Updating routes for JobRouter, writing routes script ***");
+  open(my $fh, '>', $ROUTES_LIST_FILE) or $self->info("Can't write to file $ROUTES_LIST_FILE: [$!]\n");
+  print $fh "#!/bin/bash\ncat<<EOF\n$ENV{ROUTES_LIST}\nEOF";
+  close $fh;
+  chmod "0711", $ROUTES_LIST_FILE;
+  $self->{ROUTES_FILE_LAST_UPDATE} = time();
+}
+
+sub update_routes{
+  my $self = shift;
+  $self->write_routes() if time()-$self->{ROUTES_FILE_LAST_UPDATE}>$ROUTES_LIST_UPDATE_PERIOD; 
+}
 
 return 1;
