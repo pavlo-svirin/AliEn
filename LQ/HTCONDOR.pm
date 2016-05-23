@@ -55,20 +55,38 @@ sub submit {
   my $log_folder = "$ENV{HTCONDOR_LOG_PATH}/$year-$month-$day";
   mkdir( $log_folder ) if( $ENV{HTCONDOR_LOG_PATH} and !-d $log_folder );
 
+# ===========
+
   my $submit = "cmd = $jobscript\n" .
 ( $ENV{HTCONDOR_LOG_PATH} ?
 "output = $log_folder/jobagent_$ENV{ALIEN_JOBAGENT_ID}.out
 error = $log_folder/jobagent_$ENV{ALIEN_JOBAGENT_ID}.err
-log = $log_folder/jobagent_$ENV{ALIEN_JOBAGENT_ID}.log\n" : "" )
-. 
-"universe = grid
-grid_resource = condor ce503.cern.ch ce503.cern.ch:9619
-use_x509userproxy = true
-#periodic_remove = (RemoteWallClockTime > 48*3600 ) || (JobStatus==5 && (CurrentTime - EnteredCurrentStatus) > 5*3600 ) 
-periodic_remove = (CurrentTime - QDate) > 7*24*3600
+log = $log_folder/jobagent_$ENV{ALIEN_JOBAGENT_ID}.log\n" : "" );
+
+# ---- direct
+if(!$ENV{'USE_JOB_ROUTER'}){
+	$submit .= "universe = grid
+	+TransferOutput = \"\"
+	#periodic_remove = (RemoteWallClockTime > 48*3600 ) || (JobStatus==5 && (CurrentTime - EnteredCurrentStatus) > 5*3600 ) 
+	periodic_remove = (CurrentTime - QDate) > 7*24*3600";
+	
+	$submit .= "\ngrid_resource = " . $ENV{'GRID_RESOURCE'} if($ENV{'GRID_RESOURCE'});
+	
+	# grid_resource = condor ce503.cern.ch ce503.cern.ch:9619";
+}
+else{
+	$submit .= "universe = vanilla
+	+WantJobRouter=True
+	job_lease_duration = 7200
+	should_transfer_files = YES
+	periodic_remove = (CurrentTime - QDate > 7*24*3600)";
+}
+# ----- common
+$submit .= "use_x509userproxy = true
 environment=\"ALIEN_CM_AS_LDAP_PROXY='$cm' ALIEN_ALICE_CM_AS_LDAP_PROXY='$cm' ALIEN_JOBAGENT_ID='$ENV{ALIEN_JOBAGENT_ID}'\"
-+TransferOutput = \"\"
 queue 1";
+
+# =============
 
   $self->{COUNTER}++;
   eval {    
