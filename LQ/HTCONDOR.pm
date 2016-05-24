@@ -21,6 +21,12 @@ Multiple routes example:
 ROUTES_LIST = [ TargetUniverse = 5; name = "Route jobs to HTCondor"; ] [ GridResource = "batch pbs"; TargetUniverse = 9; name = "Route jobs to PBS"; ]
 
 -------------------
+Crontab script to fill the routes list from LDAP (the output file has to be readable and executable for condor user):
+
+ldapsearch -x -h alice-ldap.cern.ch:8389 -b o=alice,dc=cern,dc=ch "(&(host=$(hostname -f))(objectClass=AlienCE))" | perl -p00e 's/\r?\n //g' | grep ROUTES_LIST | sed 's/environment: ROUTES_LIST=//' > ___SOME_FILE___
+chmod +x ___SOME_FILE___
+
+-------------------
 Cleanup script for junk files removal:
 
 #!/bin/sh
