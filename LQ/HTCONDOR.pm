@@ -23,8 +23,29 @@ ROUTES_LIST = [ TargetUniverse = 5; name = "Route jobs to HTCondor"; ] [ GridRes
 -------------------
 Crontab script to fill the routes list from LDAP (the output file has to be readable and executable for condor user):
 
-ldapsearch -x -h alice-ldap.cern.ch:8389 -b o=alice,dc=cern,dc=ch "(&(host=$(hostname -f))(objectClass=AlienCE))" | perl -p00e 's/\r?\n //g' | grep ROUTES_LIST | sed 's/environment: ROUTES_LIST=//' > ___SOME_FILE___
+
+#!/bin/bash
+
+echo '#!/bin/bash' > ___SOME_FILE___
+echo "cat << EOF" >> ___SOME_FILE___
+LDAP_ADDR=alice-ldap.cern.ch:8389
+A=$(ldapsearch -x -h $LDAP_ADDR -b o=alice,dc=cern,dc=ch "(&(host=$(hostname -f))(objectClass=AlienCE))" | perl -p00e 's/\r?\n //g' | grep 'ROUTES_LIST\|USE_EXTERNAL_CLOUD')
+if [ -z "$A" ]; then
+        exit 3
+fi
+
+ROUTES_LIST=$(echo -n $A | sed 's/environment: /\n/g' | grep ROUTES_LIST | sed 's/ROUTES_LIST=//g')
+ echo -n  $ROUTES_LIST >> ___SOME_FILE___
+USE_EXTERNAL_CLOUD=$(echo $A | sed 's/environment: /\n/g' | grep USE_EXTERNAL_CLOUD | sed 's/USE_EXTERNAL_CLOUD=//')
+if [ ! -z $USE_EXTERNAL_CLOUD ] && [ $USE_EXTERNAL_CLOUD -eq 1 ]; then
+        echo '\\' >> ___SOME_FILE___
+        echo $ROUTES_LIST | sed 's/]/set_WantExternalCloud = True; ]/g' >> ___SOME_FILE___
+else
+        echo >> ___SOME_FILE___
+fi
+echo EOF >> ___SOME_FILE___
 chmod +x ___SOME_FILE___
+
 
 -------------------
 Cleanup script for junk files removal:
@@ -67,7 +88,6 @@ echo === READY `date`
 
 Crontab line for cleanup script:
 37 * * * * /bin/sh /home/alicesgm/htcondor-cleanup.sh
-
 
 =cut
 
