@@ -10,7 +10,6 @@ package AliEn::LQ::HTCONDOR;
 Configuration options for LDAP (Environment section):
 
 USE_JOB_ROUTER=( 1 | 0) # whether is is necessary to use job router service
-UPDATE_ROUTES=(1 | 0 ) 	# whether it is necessary to set routes from LDAP
 GRID_RESOURCE=condor ce504.cern.ch ce504.cern.ch:9619 	# htCondor resource for explicitly defined for submission to vanilla universe, otherwise system default resource will be selected
 ROUTES_LIST=[GridResource = "condor ce504.cern.ch ce504.cern.ch:9619"; eval_set_GridResource = "condor ce504.cern.ch ce504.cern.ch:9619"; name = "Site 4"; ]  	# routes list example
 USE_EXTERNAL_CLOUD=(1 | 0) # whether to use external cloud
