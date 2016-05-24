@@ -1,6 +1,70 @@
 package AliEn::LQ::HTCONDOR;
 
+# if you got any questions or suggestions about the module
+# please contact me at: Pavlo Svirin <pavlo.svirin@cern.ch>
+
 @ISA = qw( AliEn::LQ );
+
+=pod
+------------------
+Configuration options for LDAP (Environment section):
+
+USE_JOB_ROUTER=( 1 | 0) # whether is is necessary to use job router service
+UPDATE_ROUTES=(1 | 0 ) 	# whether it is necessary to set routes from LDAP
+GRID_RESOURCE=condor ce504.cern.ch ce504.cern.ch:9619 	# htCondor resource for explicitly defined for submission to vanilla universe, otherwise system default resource will be selected
+ROUTES_LIST=[GridResource = "condor ce504.cern.ch ce504.cern.ch:9619"; eval_set_GridResource = "condor ce504.cern.ch ce504.cern.ch:9619"; name = "Site 4"; ]  	# routes list example
+USE_EXTERNAL_CLOUD=(1 | 0) # whether to use external cloud
+
+
+Multiple routes example:
+
+ROUTES_LIST = [ TargetUniverse = 5; name = "Route jobs to HTCondor"; ] [ GridResource = "batch pbs"; TargetUniverse = 9; name = "Route jobs to PBS"; ]
+
+-------------------
+Cleanup script for junk files removal:
+
+#!/bin/sh
+
+cd ~/htcondor || exit
+
+GZ_SIZE=10k
+GZ_MINS=60
+GZ_DAYS=2
+RM_DAYS=7
+
+STAMP=.stamp
+prefix=cleanup-
+log=$prefix`date +%y%m%d`
+exec >> $log 2>&1 < /dev/null
+echo === START `date`
+for d in `ls -d 20??-??-??`
+do
+    (
+        echo === $d
+        stamp=$d/$STAMP
+        [ -e $stamp ] || touch $stamp || exit
+        if find $stamp -mtime +$RM_DAYS | grep . > /dev/null
+        then
+            echo removing...
+            /bin/rm -r $d < /dev/null
+            exit
+        fi
+        cd $d || exit
+        find . ! -name .\* ! -name \*.gz \( -mtime +$GZ_DAYS -o \
+            -size +$GZ_SIZE -mmin +$GZ_MINS \) -exec gzip -9v {} \;
+    )
+done
+find $prefix* -mtime +$RM_DAYS -exec /bin/rm {} \;
+echo === READY `date`
+
+----------------
+
+Crontab line for cleanup script:
+37 * * * * /bin/sh /home/alicesgm/htcondor-cleanup.sh
+
+
+=cut
+
 
 use AliEn::LQ;
 use AliEn::X509;
@@ -71,9 +135,8 @@ if(!$ENV{'USE_JOB_ROUTER'}){
 	periodic_remove = (CurrentTime - QDate) > 7*24*3600";
 	
 	$submit .= "\ngrid_resource = " . $ENV{'GRID_RESOURCE'} if($ENV{'GRID_RESOURCE'});
-	
-	# grid_resource = condor ce503.cern.ch ce503.cern.ch:9619";
-}
+	$submit .= "\n+WantExternalCloud = True" if($ENV{'USE_EXTERNAL_CLOUD'});
+}	
 else{
 	$submit .= "universe = vanilla
 	+WantJobRouter=True
