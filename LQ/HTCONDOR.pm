@@ -82,7 +82,7 @@ else{
 	periodic_remove = (CurrentTime - QDate > 7*24*3600)";
 }
 # ----- common
-$submit .= "use_x509userproxy = true
+$submit .= "\nuse_x509userproxy = true
 environment=\"ALIEN_CM_AS_LDAP_PROXY='$cm' ALIEN_ALICE_CM_AS_LDAP_PROXY='$cm' ALIEN_JOBAGENT_ID='$ENV{ALIEN_JOBAGENT_ID}'\"
 queue 1";
 
