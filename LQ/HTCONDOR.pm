@@ -155,11 +155,14 @@ log = $log_folder/jobagent_$ENV{ALIEN_JOBAGENT_ID}.log\n" : "" );
 # ---- direct
 if(!$ENV{'USE_JOB_ROUTER'}){
 	$submit .= "universe = grid
-	+TransferOutput = \"\"
 	#periodic_remove = (RemoteWallClockTime > 48*3600 ) || (JobStatus==5 && (CurrentTime - EnteredCurrentStatus) > 5*3600 ) 
 	periodic_remove = (CurrentTime - QDate) > 7*24*3600";
 	
+	# +TransferOutput = \"\"
 	$submit .= "\ngrid_resource = " . $ENV{'GRID_RESOURCE'} if($ENV{'GRID_RESOURCE'});
+	$submit .= "\nbatch_queue = nordug";
+	$submit .= "\nDelegatedProxyExpiration = 48*60*60";
+	$submit .= "\nshould_transfer_files = YES";
 	$submit .= "\n+WantExternalCloud = True" if($ENV{'USE_EXTERNAL_CLOUD'});
 }	
 else{
@@ -170,10 +173,13 @@ else{
 	periodic_remove = (CurrentTime - QDate > 7*24*3600)";
 }
 # ----- common
-$submit .= "\nuse_x509userproxy = true
+#$submit .= "\nuse_x509userproxy = true
+#environment=\"ALIEN_CM_AS_LDAP_PROXY='$cm' ALIEN_ALICE_CM_AS_LDAP_PROXY='$cm' ALIEN_JOBAGENT_ID='$ENV{ALIEN_JOBAGENT_ID}'\"
+#queue 1";
+
+$submit .= "\nx509userproxy = $ENV{X509_USER_PROXY}
 environment=\"ALIEN_CM_AS_LDAP_PROXY='$cm' ALIEN_ALICE_CM_AS_LDAP_PROXY='$cm' ALIEN_JOBAGENT_ID='$ENV{ALIEN_JOBAGENT_ID}'\"
 queue 1";
-
 # =============
 
   $self->{COUNTER}++;
@@ -354,6 +360,20 @@ sub ping_ce{
   return 2 if !$ce_name || !$ce_pool;
   return system("condor_ping -verbose -name ce_name -pool $ce_pool WRITE");
 }
+
+# ======= testing
+
+
+# sub getScriptSpecifics {
+#	 my $self            = shift;
+#	 my $original_string = shift;
+#	 return "ls -la; pwd;  DIR=\$(basename \$(pwd) | sed 's/#/_/g'); 
+#		 export HOME=/home/alicesgm/\$DIR; 
+#		 ln -s \$PWD \"../\$DIR\" && cd ..\$DIR;
+#		   export X509_USER_PROXY=/home/alicesgm/x509_2095; export; " . $original_string . " ; cd ..; rm -rf ./\$DIR ;"; 
+#	 # . "\nrm -rf \$HOME";
+#	 #return "export X509_USER_PROXY=\`pwd\`/proxy\n" . $original_string;
+# }
 
 
 return 1;
